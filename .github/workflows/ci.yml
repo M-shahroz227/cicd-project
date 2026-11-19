@@ -1,5 +1,5 @@
 
-name: My First CI Pipeline
+name: CI-CD Pipeline
 
 on:
   push:
@@ -17,8 +17,38 @@ jobs:
       - name: Build Application
         run: echo "Building HTML application"
 
-      - name: Test Application
-        run: test -f index.html
+      - name: Run Tests
+        run: bash tests/test.sh
 
       - name: Success
-        run: echo "Pipeline completed successfully!"
+        run: echo "All tests passed!"
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Copy Website to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "index.html"
+          target: "/tmp"
+
+      - name: Deploy Website
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            sudo install -m 644 /tmp/index.html /usr/share/nginx/html/index.html
+            sudo systemctl restart nginx
+            curl -I http://localhost
+            echo "Deployment completed successfully!"
+
