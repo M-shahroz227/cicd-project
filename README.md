@@ -1,64 +1,349 @@
-# AWS EC2 GitHub Actions CI/CD Pipeline
+# AWS DevOps Project: Infrastructure as Code & CI/CD Automation
 
-A hands-on DevOps project demonstrating automated CI/CD deployment of a static website to an AWS EC2 instance using **GitHub Actions and AWS Systems Manager (SSM)** — without SSH or SCP.
+A complete hands-on DevOps project demonstrating AWS infrastructure provisioning, configuration management, and automated application deployment using Terraform, Ansible, and GitHub Actions.
 
 ## Project Overview
 
-This project automates the process of testing and deploying a website whenever code is pushed to the `main` branch.
+This project demonstrates an end-to-end DevOps workflow:
 
-GitHub Actions runs the build and test stages. If the tests pass, the deployment job uses AWS Systems Manager Run Command to update the website on an Amazon Linux 2023 EC2 instance.
+- Provision AWS infrastructure using Terraform.
+- Configure an Amazon Linux 2023 EC2 instance using Ansible.
+- Install and configure Nginx as a web server.
+- Automate application testing and deployment using GitHub Actions.
+- Deploy website updates through AWS Systems Manager (SSM), without SSH or SCP in the CI/CD deployment workflow.
 
-## Architecture
+## Project Architecture
 
 ```text
-        Developer
-            |
-            | git push
-            v
-       GitHub Repository
-            |
-            v
-      GitHub Actions
-            |
-            v
-      Build Application
-            |
-            v
-        Run Tests
-            |
-            v
-       Configure AWS
-        Credentials
-            |
-            v
-       AWS SSM Command
-            |
-            v
-       Amazon EC2
-      (Amazon Linux 2023)
-            |
-            v
-       Update Nginx
-            |
-            v
+                 Developer
+                     |
+                     | Git Push
+                     v
+              GitHub Repository
+                     |
+          +----------+-----------+
+          |                      |
+          v                      v
+      Terraform               Ansible
+          |                      |
+          v                      v
+     AWS Infrastructure     EC2 Configuration
+          |                      |
+          v                      v
+       AWS EC2  <----------  Install Nginx
+          |
+          v
+    GitHub Actions CI/CD
+          |
+          v
+      Build & Test
+          |
+          v
+    Configure AWS Credentials
+          |
+          v
+      AWS Systems Manager
+          |
+          v
+      Deploy index.html
+          |
+          v
+      Restart Nginx
+          |
+          v
        Live Website
 ```
 
 ## Technologies Used
 
-- AWS EC2
-- Amazon Linux 2023
-- AWS Systems Manager (SSM)
-- AWS IAM
-- GitHub Actions
-- Git and GitHub
-- Nginx
-- Linux
-- YAML
-- Bash
-- Python 3
+| Category | Technologies |
+|---|---|
+| Cloud Platform | AWS |
+| Infrastructure as Code | Terraform |
+| Configuration Management | Ansible |
+| CI/CD | GitHub Actions |
+| Operating System | Amazon Linux 2023 |
+| Web Server | Nginx |
+| Remote Management | AWS Systems Manager |
+| Version Control | Git and GitHub |
+| Scripting | Bash, Python |
+| Configuration | YAML, HCL |
+| Cloud Security | AWS IAM |
 
-## Project Structure
+# 1. Terraform – Infrastructure Provisioning
+
+Terraform is used to provision AWS infrastructure through Infrastructure as Code (IaC).
+
+### Infrastructure Created
+
+- AWS EC2 instance
+- Amazon Linux 2023 AMI
+- EC2 Security Group
+- SSH inbound rule restricted to the configured IP
+- HTTP inbound rule on port 80
+- EC2 key pair configuration
+- Default VPC and subnet
+- EC2 instance outputs
+
+### Terraform Directory Structure
+
+```text
+terraform/
+│
+├── provider.tf
+├── main.tf
+├── variables.tf
+├── terraform.tfvars
+├── output.tf
+│
+└── .gitignore
+```
+
+### Terraform Files Explained
+
+| File | Purpose |
+|---|---|
+| provider.tf | AWS provider and region configuration |
+| main.tf | AWS infrastructure resources |
+| variables.tf | Input variable definitions |
+| terraform.tfvars | Variable values |
+| output.tf | EC2 instance ID, public IP, DNS and private IP |
+| .gitignore | Excludes Terraform state and sensitive files |
+
+### Terraform Commands
+
+Initialize Terraform:
+
+```bash
+terraform init
+```
+
+Validate configuration:
+
+```bash
+terraform validate
+```
+
+Check formatting:
+
+```bash
+terraform fmt
+```
+
+Preview infrastructure changes:
+
+```bash
+terraform plan
+```
+
+Create AWS infrastructure:
+
+```bash
+terraform apply
+```
+
+Display outputs:
+
+```bash
+terraform output
+```
+
+Destroy infrastructure when it is no longer needed:
+
+```bash
+terraform destroy
+```
+
+**Important:** Terraform state files and sensitive variable files should not be committed to GitHub.
+
+# 2. Ansible – Configuration Management
+
+Ansible is used to configure the EC2 instance after Terraform provisions the infrastructure.
+
+### Configuration Tasks
+
+- Connect to EC2 using SSH.
+- Use the `ec2-user` account.
+- Install Nginx.
+- Start the Nginx service.
+- Enable Nginx at system startup.
+- Configure the website's HTML page.
+
+### Ansible Directory Structure
+
+```text
+ansible/
+│
+├── ansible.cfg
+├── inventory.ini
+└── nginx.yaml
+```
+
+### Ansible Files Explained
+
+| File | Purpose |
+|---|---|
+| ansible.cfg | Ansible configuration |
+| inventory.ini | EC2 host and SSH connection details |
+| nginx.yaml | Nginx installation and configuration playbook |
+
+### Ansible Configuration
+
+The inventory contains the EC2 connection information:
+
+```ini
+[web]
+pathnex ansible_host=YOUR_EC2_PUBLIC_IP ansible_user=ec2-user ansible_ssh_private_key_file=/home/shahroz/.ssh/newpathnex.pem
+```
+
+Replace the example public IP with the actual EC2 public IP.
+
+Keep the private key outside the GitHub repository.
+
+### Ansible Playbook
+
+The playbook installs and starts Nginx on Amazon Linux 2023.
+
+```yaml
+---
+- name: Install and Configure Nginx on Pathnex Server
+  hosts: web
+  become: yes
+  gather_facts: false
+
+  tasks:
+    - name: Install Nginx
+      ansible.builtin.dnf:
+        name: nginx
+        state: present
+
+    - name: Start and enable Nginx
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: yes
+```
+
+### Ansible Commands
+
+Check connectivity:
+
+```bash
+ansible all -i inventory.ini -m ping
+```
+
+Run the Nginx playbook:
+
+```bash
+ansible-playbook -i inventory.ini nginx.yaml
+```
+
+Verify Nginx service:
+
+```bash
+sudo systemctl status nginx
+```
+
+# 3. GitHub Actions – CI/CD Pipeline
+
+GitHub Actions automates application testing and deployment whenever new code is pushed to the `main` branch.
+
+### CI/CD Pipeline Stages
+
+**Stage 1 – Source Code Management**
+- Developer pushes code to GitHub.
+- GitHub Actions triggers automatically.
+
+**Stage 2 – Build**
+- Checks out the application source code.
+- Executes the build step.
+
+**Stage 3 – Testing**
+- Runs the test script.
+- Deployment starts only after successful tests.
+
+**Stage 4 – AWS Authentication**
+- Configures AWS credentials from GitHub Secrets.
+- Uses a dedicated IAM deployment user.
+
+**Stage 5 – Deployment**
+- Sends an AWS Systems Manager Run Command.
+- Executes commands on the EC2 instance.
+- Updates the Nginx website.
+
+**Stage 6 – Verification**
+- Checks the SSM command status.
+- Verifies the Nginx HTTP response.
+- Reports deployment success or failure.
+
+### GitHub Actions Directory Structure
+
+```text
+.github/
+└── workflows/
+    └── ci.yml
+```
+
+### GitHub Secrets
+
+Configure the following secrets:
+
+GitHub Repository → Settings → Secrets and variables → Actions
+
+| Secret | Description |
+|---|---|
+| AWS_ACCESS_KEY_ID | AWS access key |
+| AWS_SECRET_ACCESS_KEY | AWS secret access key |
+
+Never expose AWS credentials in source code.
+
+# 4. AWS Systems Manager Configuration
+
+The deployment workflow uses AWS Systems Manager instead of SSH or SCP.
+
+### EC2 IAM Role
+
+An IAM role is attached to the EC2 instance with this AWS managed policy:
+
+`AmazonSSMManagedInstanceCore`
+
+This allows the EC2 instance to communicate with Systems Manager.
+
+### GitHub Actions IAM User
+
+A dedicated IAM user is used for deployment:
+
+`github-actions-deploy`
+
+The deployment user has permissions for the required SSM operations and EC2 instance description.
+
+### Deployment Process
+
+```text
+GitHub Actions
+      |
+      v
+AWS Authentication
+      |
+      v
+SSM SendCommand
+      |
+      v
+Amazon EC2
+      |
+      v
+Update index.html
+      |
+      v
+Restart Nginx
+      |
+      v
+Verify Website
+```
+
+# 5. Complete Project Directory Structure
+
+The intended combined GitHub repository structure is:
 
 ```text
 cicd-project/
@@ -67,176 +352,149 @@ cicd-project/
 │   └── workflows/
 │       └── ci.yml
 │
+├── terraform/
+│   ├── provider.tf
+│   ├── main.tf
+│   ├── variables.tf
+│   ├── terraform.tfvars
+│   ├── output.tf
+│   └── .gitignore
+│
+├── ansible/
+│   ├── ansible.cfg
+│   ├── inventory.ini
+│   └── nginx.yaml
+│
 ├── deploy/
 │   └── deploy.sh
 │
 ├── tests/
 │   └── test.sh
 │
-├── index.html
+├── screenshots/
+│   ├── terraform-infrastructure.png
+│   ├── ansible-playbook-success.png
+│   ├── github-actions-success.png
+│   ├── ssm-managed-node.png
+│   └── live-website.png
 │
+├── index.html
+├── .gitignore
 └── README.md
 ```
 
-## CI/CD Pipeline Stages
+**Note:** The Terraform and Ansible directories should be added to the GitHub repository to match this structure. Do not upload Terraform state files, private SSH keys, AWS credentials, or sensitive `.tfvars` values.
 
-### 1. Source Code Management
-- Developer pushes code to the GitHub repository.
-- GitHub Actions triggers automatically on pushes to the `main` branch.
+# 6. How to Run the Complete Project
 
-### 2. Build Application
-- GitHub Actions checks out the source code.
-- Runs the build step.
+### Step 1 – Provision Infrastructure
 
-### 3. Run Tests
-- Executes the test script:
-  `bash tests/test.sh`
-- Deployment proceeds only when tests pass.
-
-### 4. Configure AWS Credentials
-- Uses GitHub repository secrets to authenticate with AWS.
-- AWS credentials are configured using `aws-actions/configure-aws-credentials`.
-
-### 5. Deploy Using AWS SSM
-- Sends a remote command using AWS Systems Manager.
-- No SSH or SCP connection is required.
-
-### 6. Update Nginx Website
-- Copies the updated `index.html` to the Nginx web directory.
-- Restarts Nginx.
-- Checks the local web server response.
-
-### 7. Verify Deployment
-- GitHub Actions checks the SSM command status.
-- The workflow reports success when deployment completes.
-
-## AWS Configuration
-
-### EC2 Instance
-- Operating System: Amazon Linux 2023
-- Web Server: Nginx
-- Deployment Method: AWS Systems Manager Run Command
-
-### IAM Role for EC2
-
-Created an EC2 IAM role with this AWS managed policy:
-
-`AmazonSSMManagedInstanceCore`
-
-This allows the EC2 instance to communicate with AWS Systems Manager.
-
-### IAM User for GitHub Actions
-
-Created a dedicated IAM user:
-
-`github-actions-deploy`
-
-Attached a custom IAM policy with permissions for:
-- `ssm:SendCommand`
-- `ssm:GetCommandInvocation`
-- `ssm:ListCommandInvocations`
-- `ssm:ListCommands`
-- `ec2:DescribeInstances`
-
-### GitHub Repository Secrets
-
-Added the following secrets under:
-
-**GitHub Repository → Settings → Secrets and variables → Actions**
-
-| Secret Name | Purpose |
-|---|---|
-| `AWS_ACCESS_KEY_ID` | AWS access key |
-| `AWS_SECRET_ACCESS_KEY` | AWS secret key |
-
-Never store AWS credentials directly in source code or commit them to GitHub.
-
-## GitHub Actions Workflow
-
-Workflow file:
-
-`.github/workflows/ci.yml`
-
-The pipeline contains two jobs:
-
-1. `build-and-test`
-2. `deploy`
-
-The deployment job depends on the successful completion of the build and test job.
-
-## How to Run This Project
-
-Clone the repository:
+Navigate to the Terraform directory:
 
 ```bash
-git clone https://github.com/M-shahroz227/cicd-project.git
+cd terraform
+terraform init
+terraform validate
+terraform plan
+terraform apply
 ```
 
-Enter the project directory:
+### Step 2 – Configure EC2 Using Ansible
+
+Navigate to the Ansible directory:
 
 ```bash
-cd cicd-project
+cd ../ansible
 ```
 
-Make your changes to `index.html`.
+Update the inventory with the EC2 public IP, then run:
 
-Add and commit changes:
+```bash
+ansible all -i inventory.ini -m ping
+ansible-playbook -i inventory.ini nginx.yaml
+```
+
+### Step 3 – Push Application Code
+
+Navigate to the project directory:
 
 ```bash
 git add .
-git commit -m "Update website"
-```
-
-Push to GitHub:
-
-```bash
+git commit -m "Update application"
 git push origin main
 ```
 
-GitHub Actions will automatically execute the CI/CD pipeline.
+### Step 4 – Automatic Deployment
 
-## Screenshots
+GitHub Actions automatically:
 
-Add your actual project screenshots in the `screenshots/` directory.
+1. Builds the application.
+2. Runs tests.
+3. Authenticates with AWS.
+4. Sends an SSM deployment command.
+5. Updates the website on EC2.
+6. Restarts Nginx.
+7. Verifies deployment status.
 
-### 1. GitHub Actions Pipeline Success
+# 7. Project Screenshots
 
-![GitHub Actions Success](screenshots/github-actions-success.png)
+Add actual screenshots of your project in the `screenshots/` folder.
 
-### 2. Live Website on AWS EC2
+### Terraform Infrastructure
 
-![Live Website](screenshots/live-website.png)
+![Terraform Infrastructure](screenshots/terraform-infrastructure.png)
 
-### 3. AWS Systems Manager Managed Node
+### Ansible Playbook Execution
+
+![Ansible Playbook](screenshots/ansible-playbook-success.png)
+
+### GitHub Actions Pipeline
+
+![GitHub Actions](screenshots/github-actions-success.png)
+
+### AWS Systems Manager
 
 ![SSM Managed Node](screenshots/ssm-managed-node.png)
 
-## Security Notes
+### Live Website
 
-- AWS credentials are stored in GitHub Secrets.
-- EC2 uses an IAM role for Systems Manager communication.
-- Deployment is performed through SSM instead of SSH.
-- SSH access should remain restricted to trusted IP addresses.
+![Live Website](screenshots/live-website.png)
+
+# 8. Security Best Practices
+
+- Store AWS credentials in GitHub Secrets.
+- Never commit private SSH keys.
+- Never commit Terraform state files.
+- Keep SSH access restricted to trusted IP addresses.
 - Use least-privilege IAM permissions.
-- Rotate long-lived access keys regularly.
-- Prefer GitHub OIDC authentication when it is available in your AWS account.
+- Use an EC2 IAM role for Systems Manager.
+- Rotate long-lived AWS access keys.
+- Prefer GitHub OIDC authentication when available in the AWS account.
 
-## What I Learned
+# 9. Skills Demonstrated
 
-- Creating CI/CD pipelines using GitHub Actions.
-- Automating build and test stages.
-- Configuring AWS IAM users, roles, and permissions.
-- Connecting GitHub Actions with AWS.
-- Deploying applications using AWS Systems Manager.
-- Managing Nginx on Amazon Linux 2023.
-- Automating deployments without SSH or SCP.
+Through this project, I practiced:
 
-## Author
+- AWS infrastructure provisioning.
+- Infrastructure as Code using Terraform.
+- Configuration management using Ansible.
+- Linux server administration.
+- Nginx installation and configuration.
+- AWS IAM roles, users, and policies.
+- AWS Systems Manager remote execution.
+- Git and GitHub version control.
+- GitHub Actions CI/CD automation.
+- Automated application deployment.
+- Troubleshooting cloud infrastructure and deployment issues.
+
+# Author
 
 **Muhammad Shahroz**
 
 GitHub: https://github.com/M-shahroz227
 
+Repository: https://github.com/M-shahroz227/cicd-project
+
 ---
 
-*This is a hands-on personal DevOps learning project demonstrating CI/CD automation with AWS and GitHub Actions.*
+*Personal hands-on DevOps project demonstrating Infrastructure as Code, Configuration Management, AWS Cloud Infrastructure, and CI/CD Automation.*
